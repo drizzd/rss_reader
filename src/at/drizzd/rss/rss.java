@@ -1,24 +1,29 @@
 package at.drizzd.rss;
 
-import android.util.Log;
+import java.util.ArrayList;
+import java.lang.IndexOutOfBoundsException;
+import java.lang.Thread;
+import java.net.URL;
+import java.net.MalformedURLException;
+import java.io.IOException;
+import org.xmlpull.v1.XmlPullParserException;
 
+import android.util.Log;
 import android.app.ListActivity;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.ArrayAdapter;
-import java.util.ArrayList;
+import android.widget.ListView;
+import android.content.Intent;
+import android.net.Uri;
 
-import java.net.URL;
-import java.lang.Thread;
-
-import java.net.MalformedURLException;
-import org.xmlpull.v1.XmlPullParserException;
-import java.io.IOException;
 
 public class rss extends ListActivity
 {
     boolean mOnline = true;
     String TAG = getClass().getSimpleName();
-    ArrayList mEntries = new ArrayList();
+    ArrayList<String> mEntries = new ArrayList<String>();
+    ArrayList<String> mLinks = new ArrayList<String>();
     ArrayAdapter mAdapter;
     private volatile Status mStatus = Status.PENDING;
 
@@ -90,6 +95,7 @@ public class rss extends ListActivity
         Log.d(TAG, "[0] " + headlines.get(0));
         synchronized(mEntries) {
             mEntries = headlines;
+            mLinks = links;
         }
     }
 
@@ -133,5 +139,19 @@ public class rss extends ListActivity
         } catch (Throwable t) {
             t.printStackTrace();
         }
+    }
+
+    protected void onListItemClick(ListView l, View v, int position, long id) {
+        Uri uri;
+        try {
+            synchronized(mEntries) {
+                uri = Uri.parse(mLinks.get(position));
+            }
+        } catch (IndexOutOfBoundsException e) {
+            e.printStackTrace();
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+        startActivity(intent);
     }
 }
