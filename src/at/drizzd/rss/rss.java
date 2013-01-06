@@ -89,7 +89,6 @@ public class rss extends ListActivity
             e.printStackTrace();
         }
 
-        Log.d(TAG, "[0] " + headlines.get(0));
         synchronized (mEntries) {
             mHeadlines = headlines;
             mLinks = links;
@@ -109,7 +108,7 @@ public class rss extends ListActivity
     }
     private void loadEntries() {
         synchronized (mEntries) {
-            for (int i = 0; i < mHeadlines.size(); i++) {
+            for (int i = mHeadlines.size()-1; i >= 0; i--) {
                 String headline = mHeadlines.get(i);
                 boolean found = false;
                 for (int j = 0; j < mEntries.size(); j++) {
