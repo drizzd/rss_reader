@@ -1,5 +1,6 @@
 package at.drizzd.rss;
 
+import java.lang.Math;
 import java.util.ArrayList;
 import java.lang.IndexOutOfBoundsException;
 import java.lang.Thread;
@@ -22,8 +23,10 @@ public class rss extends ListActivity
 {
     boolean mOnline = true;
     String TAG = getClass().getSimpleName();
-    ArrayList<String> mEntries = new ArrayList<String>();
+    ArrayList<String> mHeadlines = new ArrayList<String>();
     ArrayList<String> mLinks = new ArrayList<String>();
+    ArrayList<String> mEntries = new ArrayList<String>();
+    ArrayList<String> mEntryLinks = new ArrayList<String>();
     ArrayAdapter mAdapter;
     private volatile Status mStatus = Status.PENDING;
 
@@ -44,17 +47,16 @@ public class rss extends ListActivity
     public void onStart() {
         super.onStart();
         mStatus = Status.RUNNING;
-        Thread loader = new Thread(new Runnable() {
+        new Thread(new Runnable() {
             public void run() {
-                if (mOnline) {
-                    runRssFeed();
-                } else {
-                    loadEntries();
-                }
+                runRssFeed();
             }
-        });
-
-        loader.start();
+        }).start();
+        new Thread(new Runnable() {
+            public void run() {
+                runEntries();
+            }
+        }).start();
     }
 
     public void onStop() {
@@ -65,12 +67,7 @@ public class rss extends ListActivity
     private void runRssFeed() {
         while (mStatus == Status.RUNNING) {
             loadRssFeed();
-            runOnUiThread(new Runnable() {
-                public void run() {
-                    updateList();
-                }
-            });
-            nap();
+            nap(60*1000);
         }
     }
 
@@ -93,49 +90,58 @@ public class rss extends ListActivity
         }
 
         Log.d(TAG, "[0] " + headlines.get(0));
-        synchronized(mEntries) {
-            mEntries = headlines;
+        synchronized (mEntries) {
+            mHeadlines = headlines;
             mLinks = links;
         }
     }
 
-    private void loadEntries() {
-        String[] alphabet = {
-            "a", "b", "c", "d", "e", "f", "g",
-            "h", "i", "j", "k", "l", "x", "y", "z"
-        };
-        synchronized(mEntries) {
-            mEntries.clear();
-        }
-        for (int i = 0; i < alphabet.length; i++) {
-            synchronized(mEntries) {
-                mEntries.add(alphabet[i]);
-                Log.d(TAG, "[" + i + "] " + alphabet[i]);
-            }
+    private void runEntries() {
+        while (mStatus == Status.RUNNING) {
+            loadEntries();
             runOnUiThread(new Runnable() {
                 public void run() {
                     updateList();
                 }
             });
-            if (mStatus != Status.RUNNING) {
-                break;
+            nap(1000);
+        }
+    }
+    private void loadEntries() {
+        synchronized (mEntries) {
+            for (int i = 0; i < mHeadlines.size(); i++) {
+                String headline = mHeadlines.get(i);
+                boolean found = false;
+                for (int j = 0; j < mEntries.size(); j++) {
+                    if (mEntries.get(j).contentEquals(headline)) {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    /* we have a winner */
+                    mEntries.add(0, headline);
+                    mEntryLinks.add(0, mLinks.get(i));
+                    Log.d(TAG, "[" + i + "] " + headline.substring(0, Math.min(5, headline.length())) + "...");
+                    break;
+                }
             }
-            nap();
         }
     }
 
     private void updateList() {
         mAdapter.clear();
-        synchronized(mEntries) {
+        synchronized (mEntries) {
             for (int i = 0; i < mEntries.size(); i++) {
                 mAdapter.add(mEntries.get(i));
             }
         }
     }
 
-    private void nap() {
+    private void nap(long millis) {
         try {
-            Thread.sleep(1000);
+            Thread.sleep(millis);
         } catch (Throwable t) {
             t.printStackTrace();
         }
@@ -144,8 +150,8 @@ public class rss extends ListActivity
     protected void onListItemClick(ListView l, View v, int position, long id) {
         Uri uri;
         try {
-            synchronized(mEntries) {
-                uri = Uri.parse(mLinks.get(position));
+            synchronized (mEntries) {
+                uri = Uri.parse(mEntryLinks.get(position));
             }
         } catch (IndexOutOfBoundsException e) {
             e.printStackTrace();
